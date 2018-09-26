@@ -49,3 +49,19 @@ windrose - controlfile (optional, you can run windrose using the footprint contr
 
 For a super explanation how to install python, git, and all necessary tools please refer to 
 https://github.com/OzFlux/PyFluxPro by Peter Isaac
+
+How to use it. Just run python footprint_GUI.py in your FootPrint directory. Setup your own 
+controlfile. For FootPrints you need the height of your measurements and an average height 
+of the canopy. You also need to specify how large the area of the footprint may be and give 
+the number of cells for your grid. The larger the size and the larger the cell number is the 
+longer it takes to calculate the footprint. 
+The size of the footprint area depends on the atmospheric conditions, at night times the 
+footprint is generally larger than over the day when turbulence is well developed. For measurements 
+of about 5 to 10 m above the displacement height a footprint area of 500 by 500 m2 is generally
+sufficient. However, test it on a small protion of your data set before you do long timeseries.
+Climatologies are done for either "daily", "monthly" and "yearly", additionally you can specify
+a single time or a time period setting Start- and End-time.
+Note: Do daily only on a short timeseries. It creates a file for every single day (365 per year).
+
+Please let me know of any problems you encounter. It works best for L3 netCDF files using the 
+standard OzFlux names. 
