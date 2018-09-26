@@ -5,3 +5,8 @@ scripts/*.pyc
 logfiles/
 # plots
 plots/
+# from local dir
+controlfiles/footprint.txt
+controlfiles/windrose.txt
+ozflux_logo.gif
+tern_logo.jpg
