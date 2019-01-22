@@ -55,11 +55,12 @@ def footprint_main(cf, mode):
           Kormann and Meixner (2001) footprint
           save footprint fields in netcdf file
     Still to do: calculate Habl if not exist, better is set Habl (latter is done)
-    C.M.Ewenz, 10 June 2018
-               21 June 2018 (corrections to monthly indexing)
-               29 June 2018 (kml file, single time stamp)
-    P.R.Isaac, July 2018 (re-wrote fp_data_in to get_footprint_data_in; configuration in get_footprint_cfg; time slicing; etc)
-    C.M.Ewenz, 30 July 2018 (cleaned up printing of info, warning and error messages - include messages in logger)
+    C.M.Ewenz, 10 Jun 2018
+               21 Jun 2018 (corrections to monthly indexing)
+               29 Jun 2018 (kml file, single time stamp)
+    P.R.Isaac, Jul 2018 (re-wrote fp_data_in to get_footprint_data_in; configuration in get_footprint_cfg; time slicing; etc)
+    C.M.Ewenz, 30 Jul 2018 (cleaned up printing of info, warning and error messages - include messages in logger)
+    C.M.Ewenz, 22 Jan 2019
     """
     logger.info(' Read input data files ...')
     # get the L3 data
@@ -186,7 +187,7 @@ def footprint_main(cf, mode):
                 return
         # ====================================================================================================
         # get the default plot width and height
-        clevs = [0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+        clevs = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
         imagename = footprint_utils.get_keyvaluefromcf(cf,["General"],'OzFlux_area_image')
         if not num[irun] == 0:
             if iplot == 1:
@@ -194,13 +195,12 @@ def footprint_main(cf, mode):
                 plotphifield(x, y, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, imagename)
             elif iplot == 2:
                 # plot on screen, in jpg and write kml (google earth) file
-                plotphifield(x, y, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, imagename)
+                #plotphifield(x, y, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, imagename)
                 kml_write(lon, lat, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, fi, d["plot_path"])
             plot_num = plt.gcf().number
             if  plot_num > 20:
                 plt.close("all")
-            
-
+        # ====================================================================================================
         # Some stats:
         #  a) Possible total number of footprints per climatology = ei - si
         tot_fp = ei - si
@@ -240,10 +240,12 @@ def get_footprint_cfg(cf, ds):
             file_out = os.path.join(cf['Files']['file_path'],cf['Files']['in_filename'].replace(".nc","_m_fp.nc"))
         elif climfreq == 'Daily':
             file_out = os.path.join(cf['Files']['file_path'],cf['Files']['in_filename'].replace(".nc","_d_fp.nc"))
+        elif climfreq == 'Hourly':
+            file_out = os.path.join(cf['Files']['file_path'],cf['Files']['in_filename'].replace(".nc","_h_fp.nc"))
         elif climfreq == 'Single':
-            file_out = os.path.join(cf['Files']['file_path'],cf['Files']['in_filename'].replace(".nc","_s_fp.nc"))
+            file_out = os.path.join(cf['Files']['file_path'],cf['Files']['in_filename'].replace(".nc","_si_fp.nc"))
         elif climfreq == 'Special':
-            file_out = os.path.join(cf['Files']['file_path'],cf['Files']['in_filename'].replace(".nc","_s_fp.nc"))
+            file_out = os.path.join(cf['Files']['file_path'],cf['Files']['in_filename'].replace(".nc","_sp_fp.nc"))
 
     plot_path = "plots/"
     if "plot_path" in cf["Files"]: plot_path = os.path.join(cf["Files"]["plot_path"],"FP/")
@@ -284,10 +286,10 @@ def get_footprint_cfg(cf, ds):
     return d
 
 def get_footprint_data_in(cf, mode):
+    import footprint_utils
     # read input data and prepare for input into Kormann and Meixner, 2001 or Kljun et al., 2015
     # python routines
     # ---------------------- Get input / output file name ------------------------------------
-
     # Set input file and output path and create directories for plots and results
     file_in = os.path.join(cf['Files']['file_path'], cf['Files']['in_filename'])
     # read the netcdf file
@@ -314,7 +316,7 @@ def get_footprint_data_in(cf, mode):
     # check to see if Monin-Obukhov length is in the data structure
     if "L" not in ds.series.keys():
         # if not, calculate it
-        CalculateMoninObukhovLength(ds)
+        footprint_utils.CalculateMoninObukhovLength(ds)
     # if the cross wind standard deviation is not in the data set (quite common) then use something else
     if "V_Sd" not in ds.series.keys():
         # could do better with:

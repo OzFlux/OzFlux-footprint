@@ -1,0 +1,53 @@
+# AAHYWEH
+# Control file for footprint calculation for Kljun et al  2015 approach (calc_footprint_FFP_climatology).
+#
+#  To convert this template to a version that works for data output by the standard OzFlux
+#  data logger program:
+#   1) Replace the following place holders with values for your site:
+#      <site_name> - the name of the site
+#      <year>      - the year of the data
+#      <height>    - the height of the measurement (above ground), m
+#   2) Fill out the global and variable attributes
+#
+# [Files] - contains paths, file names and location of data in file
+# ========================================================================================================
+
+[Files]
+    file_path = ../Sites/CumberlandPlain/Data/Processed/2017/
+    in_filename  = CumberlandPlain_2017_L3.nc
+    plot_path = ../Sites/CumberlandPlain/Plots/
+
+[Imports]
+    [[Habl]]
+        source = "ERAI"
+        file_name = ../Sites/CumberlandPlain/Data/ERA5/CumberlandPlain_ERA5.nc
+        var_name = "Habl"
+
+[Tower]
+    tower_height   = 29
+    canopy_height  = 23
+    footprint_size = 500  # length in m of a square around the tower
+    num_cells      = 250  # number of cells per length ==> footprint_size / num_cells = grid_resolution
+
+[Options]
+    # ====================================================================================================
+    # "Options" specifies the climatology of the footprints. Only one of the parameters, daily, 
+    # monthly, annual, special or single can be set to Yes. Single and Special require Start and End-date,
+    # otherwise the climatolgy for the whole data-set is calculated.
+    # If 'Daily' is set to 'yes', a climatology is calculated for every single day of the data in the 
+    # nc-file (Warning: if large files are processed the output nc-file is huge, one year of daily data 
+    # for a grid of 250x250 produces about 200 MB of output).
+    # If 'Monthly' is set the file is divided into monthly data and a climatology is calculated.
+    # If 'Annual', then individual climatologies for each year in the data file are prodiced.
+    # Length of time for the climatology
+    # ====================================================================================================
+    Climatology = 'Hourly' #'Monthly' #'Daily' #'Special' #'Annual' #'Single' #
+    #StartDate = '2009-02-08 00:30'
+    #EndDate   = '2009-02-09 00:00'
+
+[General]
+    iplot = 2   # 1 / jpg plot on screen; 2 / png plot into kml
+    #idaytime = 0
+    PlotWidth  = 5.0 #10.9
+    PlotHeight = 5.0 # 7.5
+    OzFlux_area_image = "../Sites/CumberlandPlain/images/CumberlandPlain_ndvi_500x500.png" # None #

@@ -191,18 +191,24 @@ def CalculateMoninObukhovLength(ds):
     logger.info(' Calculating Monin-Obukhov length')
     # create a variable dictionary for L
     nrecs = int(ds.globalattributes["nc_nrecs"])
-    ldt = footprint_utils.GetVariable(ds, "DateTime")
-    L = footprint_utils.create_empty_variable("L", nrecs, datetime=ldt["Data"])
+    ldt = GetVariable(ds, "DateTime")
+    L = create_empty_variable("L", nrecs, datetime=ldt["Data"])
     # create QC flags
     zeros = numpy.zeros(nrecs, dtype=numpy.int32)
     ones = numpy.ones(nrecs, dtype=numpy.int32)
     # get the required meteorological variables
-    Ta = footprint_utils.GetVariable(ds, "Ta")
-    ps = footprint_utils.GetVariable(ds, "ps")
-    vp = footprint_utils.GetVariable(ds, "e")
+    Ta = GetVariable(ds, "Ta")
+    ps = GetVariable(ds, "ps")
+    if "e" in ds.series.keys(): 
+        vp = GetVariable(ds, "e")
+    else:
+        vp = create_empty_variable("vp", nrecs, datetime=ldt["Data"])
+        Ah = GetVariable(ds, "Ah")
+        vp["Data"] = mf.vapourpressure(Ah["Data"],Ta["Data"])
+    
     # get the required fluxes
-    ustar = footprint_utils.GetVariable(ds, "ustar")
-    Fh = footprint_utils.GetVariable(ds, "Fh")
+    ustar = GetVariable(ds, "ustar")
+    Fh    = GetVariable(ds, "Fh")
     # calculate the density of dry air
     rho_dry = mf.densitydryair(Ta["Data"], ps["Data"], vp["Data"])
     # calculate virtual potential temperature
@@ -217,7 +223,7 @@ def CalculateMoninObukhovLength(ds):
     L["Attr"]["long_name"] = "Monin-Obukhov length"
     L["Attr"]["standard_name"] = "not defined"
     # put the Monin-Obukhov variable in the data structure
-    footprint_utils.CreateVariable(ds, L)
+    CreateVariable(ds, L)
     return
 
 def z0calc(zm,LM,U_meas,UStar):
@@ -342,6 +348,22 @@ def create_index_list(cf, d, date):
             list_EnDate.append(GetDateIndex(date,xlEnDate,ts=d["flux_period"],default=0,match='exact'))
         else:
             list_EnDate.append(len(date)-1) # run to end of file
+
+    elif climfreq == 'Hourly':
+        # if file is half hourly every single data is used
+        if 'StartDate' in cf['Options'].keys():
+            xlStDate = cf['Options']['StartDate']
+            firstIdx = GetDateIndex(date,xlStDate,ts=d["flux_period"],default=0,match='exact')
+        else:
+            firstIdx = 0         # start from begin of file
+        if 'EndDate' in cf['Options'].keys():
+            xlEnDate = cf['Options']['EndDate']
+            lastIdx = GetDateIndex(date,xlEnDate,ts=d["flux_period"],default=0,match='exact')
+        else:
+            lastIdx = len(date)-1 # run to end of file
+        list_StDate = range(firstIdx,lastIdx)
+        list_EnDate = range(firstIdx+1,lastIdx+1)
+        print 'Start to End = ',list_StDate, list_EnDate
 
     elif climfreq == 'Daily':
         StDate = date[0]
@@ -596,6 +618,13 @@ def file_exists(filename,mode="verbose"):
         return False
     else:
         return True
+
+def MakeEmptySeries(ds,ThisOne):
+    nRecs = int(ds.globalattributes['nc_nrecs'])
+    Series = float(c.missing_value)*numpy.ones(nRecs,dtype=numpy.float64)
+    Flag = numpy.ones(nRecs,dtype=numpy.int32)
+    Attr = MakeAttributeDictionary()
+    return Series,Flag,Attr
 
 def GetSeries(ds,ThisOne,si=0,ei=-1,mode="truncate"):
     """ Returns the data, QC flag and attributes of a series from the data structure."""
