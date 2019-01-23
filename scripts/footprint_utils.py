@@ -313,6 +313,7 @@ def create_index_list(cf, d, date):
             difficulty, the time for this single element is actually the timestep
             from previous to the named in the list (timestamp at end of interval
     Special = only one element for Start and End
+    Hourly  = every timestep
     Daily   = get a climatology for each day, forget about the couple of hours
             before and after the first day, use
             GetDateIndex(ldt,date_str,ts=30,default=0,match='startnextday')
@@ -360,7 +361,7 @@ def create_index_list(cf, d, date):
             xlEnDate = cf['Options']['EndDate']
             lastIdx = GetDateIndex(date,xlEnDate,ts=d["flux_period"],default=0,match='exact')
         else:
-            lastIdx = len(date)-1 # run to end of file
+            lastIdx = len(date)-2 # run to end of file
         list_StDate = range(firstIdx,lastIdx)
         list_EnDate = range(firstIdx+1,lastIdx+1)
         print 'Start to End = ',list_StDate, list_EnDate

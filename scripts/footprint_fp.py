@@ -58,9 +58,9 @@ def footprint_main(cf, mode):
     C.M.Ewenz, 10 Jun 2018
                21 Jun 2018 (corrections to monthly indexing)
                29 Jun 2018 (kml file, single time stamp)
-    P.R.Isaac, Jul 2018 (re-wrote fp_data_in to get_footprint_data_in; configuration in get_footprint_cfg; time slicing; etc)
+    P.R.Isaac,    Jul 2018 (re-wrote fp_data_in to get_footprint_data_in; configuration in get_footprint_cfg; time slicing; etc)
     C.M.Ewenz, 30 Jul 2018 (cleaned up printing of info, warning and error messages - include messages in logger)
-    C.M.Ewenz, 22 Jan 2019
+    C.M.Ewenz, 22 Jan 2019 (included "Hourly" for plotting every timestep)
     """
     logger.info(' Read input data files ...')
     # get the L3 data
