@@ -61,6 +61,7 @@ def footprint_main(cf, mode):
     P.R.Isaac,    Jul 2018 (re-wrote fp_data_in to get_footprint_data_in; configuration in get_footprint_cfg; time slicing; etc)
     C.M.Ewenz, 30 Jul 2018 (cleaned up printing of info, warning and error messages - include messages in logger)
     C.M.Ewenz, 22 Jan 2019 (included "Hourly" for plotting every timestep)
+    C.M.Ewenz, 08 Feb 2019 (estimate cumulative footprint field)
     """
     logger.info(' Read input data files ...')
     # get the L3 data
@@ -159,7 +160,7 @@ def footprint_main(cf, mode):
             if mode == "kljun":
                 FFP = calcfootNK.FFP_climatology (zm=zmt,z0=z0t,umean=umeant,h=ht,ol=olt,sigmav=sigmavt,ustar=ustart,\
                                                   wind_dir=wind_dirt,domain=domaint,dx=None,dy=None,nx=nxt,ny=None,\
-                                                rs=rst,rslayer=0,smooth_data=1,crop=False,pulse=None,verbosity=2)
+                                                rs=rst,rslayer=1,smooth_data=1,crop=False,pulse=None,verbosity=2)
                 x              = FFP['x_2d']
                 y              = FFP['y_2d']
                 f              = FFP['fclim_2d']
@@ -185,18 +186,27 @@ def footprint_main(cf, mode):
                 msg = " Unrecognised footprint type " + str(mode)
                 logger.error(msg)
                 return
+            i_cum = footprint_utils.get_keyvaluefromcf(cf,["Options"],'Cumulative')
+            if i_cum:
+               msg = "Caclulated cumulative footprint field"
+               logger.info(msg)
+               f_min = 0.05
+               f_step = 0.05
+               f = calc_cumulative(f,f_min,f_step)
+            
         # ====================================================================================================
         # get the default plot width and height
-        clevs = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+        #clevs = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+        clevs = [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
         imagename = footprint_utils.get_keyvaluefromcf(cf,["General"],'OzFlux_area_image')
         if not num[irun] == 0:
             if iplot == 1:
                 # plot on screen and in jpg
-                plotphifield(x, y, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, imagename)
+                plotphifield(x, y, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, imagename,i_cum)
             elif iplot == 2:
                 # plot on screen, in jpg and write kml (google earth) file
                 #plotphifield(x, y, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, imagename)
-                kml_write(lon, lat, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, fi, d["plot_path"])
+                kml_write(lon, lat, ldt[si], ldt[ei], f, d["site_name"], mode, clevs, fi, d["plot_path"],i_cum)
             plot_num = plt.gcf().number
             if  plot_num > 20:
                 plt.close("all")
@@ -410,7 +420,7 @@ def kml_initialise(d,fi,mode):
     fi.write('      </Point>\n')
     fi.write('  </Placemark>\n')
 
-def kml_write(lon, lat, zt1, zt2, data, station, mode, clevs, fi, plot_path):
+def kml_write(lon, lat, zt1, zt2, data, station, mode, clevs, fi, plot_path,i_cum):
     plot_in='Footprint_'+ mode + zt1.strftime("%Y%m%d%H%M") +'.png'
     plotname=plot_path + plot_in
     width = 5
@@ -426,8 +436,16 @@ def kml_write(lon, lat, zt1, zt2, data, station, mode, clevs, fi, plot_path):
     # draw a new figure and replot the colorbar there
     fig,ax = plt.subplots(figsize=(width,height))
     cbar = plt.colorbar(cs,ax=ax)
+    # =========================================================================
+    #rlevs = [1 - clev for clev in clevs if clev is not None]
+    #cbar.set_ticks(rlevs)
     cbar.set_ticks(clevs)
-    cbar.set_label('Footprint in fraction')
+    if i_cum:
+        cbar.set_label('Cumulative footprint contribution in percent')
+    else:
+        cbar.set_label('Percentage of footprint contribution')
+    #cbar.set_label('Footprint in fraction')
+    #cbar.set_label('Flux footprint contribution in fraction')
     ax.remove()
     plt.savefig(plot_path+'cbar.png',bbox_inches='tight') #, transparent=True)
     fn = plt.gcf().number
@@ -484,7 +502,7 @@ def kml_finalise(d,fi,mode,kmlname):
     zf.close()
     os.chdir(cwd)
 
-def plotphifield(x, y, zt1, zt2, data, station, mode, clevs, imagename):
+def plotphifield(x, y, zt1, zt2, data, station, mode, clevs, imagename,i_cum):
     # plot footprint in 2-dim field; use x,y - coordinates
     text = 'Footprint ' + station + ' ' + zt1.strftime("%Y%m%d%H%M") + '  to  ' + zt2.strftime("%Y%m%d%H%M")
     plotname='plots/Footprint_'+ mode + zt1.strftime("%Y%m%d%H%M") + '.jpg'
@@ -498,6 +516,10 @@ def plotphifield(x, y, zt1, zt2, data, station, mode, clevs, imagename):
     ax = fig.add_axes([0.1,0.1,0.8,0.8])
     cs = plt.contourf(x,y,data,clevs,cmap=plt.get_cmap('hsv'))
     cbar = plt.colorbar(cs,location='right',pad=0.04,fraction=0.046)
+    if i_cum:
+        cbar.set_label('Cumulative footprint contribution in percent')
+    else:
+        cbar.set_label('Percentage of footprint contribution')
     # contour levels
     plt.title(text)
     plt.xlabel('x [m]')
@@ -511,3 +533,31 @@ def plotphifield(x, y, zt1, zt2, data, station, mode, clevs, imagename):
     plt.pause(1e-9)
     plt.ioff()
     
+def calc_cumulative(f, f_min,f_step):
+    # calculate the cumulative footprint values
+    fcum05 = numpy.ma.masked_where(f <= f_min, f)
+    fcum05 = numpy.ma.filled(fcum05,float(0))
+    fcum  = numpy.sum(fcum05)
+    num = int(round((1.0 - (f_min)) / f_step))
+    ser1 = numpy.linspace(1.0-f_step,f_min,num)
+    ser2 = numpy.linspace(1.0,f_min+f_step,num)
+    ser3 = 0.5*(ser1+ser2)
+    #print ser1,ser2
+    cclevs = []
+    stest = 0.0
+    fmax=numpy.amax(f)
+    for i in range(0,len(ser1)):
+        test = numpy.ma.masked_where((f <= ser1[i]) | (f > ser2[i]), f)
+        if test.count() > 0:
+            test = numpy.sum(test)/fcum
+        else:
+            test = 0.0
+        stest = stest + test
+        cclevs.append(stest)
+        #print ser3[i],stest #fmax,numpy.sum(fcum05),ser1[i],ser2[i],test,stest
+    fcum_eq = numpy.polyfit(ser3,cclevs,3)
+    #print fcum_eq
+    fcum=fcum_eq[0]*f*f*f+fcum_eq[1]*f*f+fcum_eq[2]*f+fcum_eq[3]
+    f=fcum
+    
+    return f

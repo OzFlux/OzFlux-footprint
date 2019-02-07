@@ -44,10 +44,11 @@
     Climatology = 'Hourly' #'Monthly' #'Daily' #'Special' #'Annual' #'Single' #
     #StartDate = '2009-02-08 00:30'
     #EndDate   = '2009-02-09 00:00'
+    Cumulative = 'Yes' # (default = 'No')
 
 [General]
     iplot = 2   # 1 / jpg plot on screen; 2 / png plot into kml
     #idaytime = 0
     PlotWidth  = 5.0 #10.9
     PlotHeight = 5.0 # 7.5
-    OzFlux_area_image = "../Sites/CumberlandPlain/images/CumberlandPlain_ndvi_500x500.png" # None #
+    OzFlux_area_image = None #"../Sites/CumberlandPlain/images/CumberlandPlain_ndvi_500x500.png" # 
