@@ -5,6 +5,7 @@ import os
 import zipfile
 # 3rd party modules
 import matplotlib.pyplot as plt
+from matplotlib.path import Path
 import numpy
 import pandas
 #from scipy.misc.pilutil import imread
@@ -48,9 +49,10 @@ def footprint_main(cf, mode):
     (b) monthly footprint climatology
     (c) annual footprint climatology
     (d) special time set in controlfile for footprint climatology
+    (e) every timestep
     GOAL: Footprint climatology can be done on a set time in controlfile
           calculating Kljun et al., 2015 and Kormann and Meixner, 2001 footprint
-    DONE: set time in controlfile, special, daily, monthly and annual
+    DONE: set time in controlfile, special, daily, monthly and annual, every timestep
           Kljun et al. (2015) footprint
           Kormann and Meixner (2001) footprint
           save footprint fields in netcdf file
@@ -62,6 +64,7 @@ def footprint_main(cf, mode):
     C.M.Ewenz, 30 Jul 2018 (cleaned up printing of info, warning and error messages - include messages in logger)
     C.M.Ewenz, 22 Jan 2019 (included "Hourly" for plotting every timestep)
     C.M.Ewenz, 08 Feb 2019 (estimate cumulative footprint field)
+    C.M.EWenz, 21 Feb 2019 (calculate proportion of footprint field in area of interest)
     """
     logger.info(' Read input data files ...')
     # get the L3 data
@@ -168,7 +171,7 @@ def footprint_main(cf, mode):
                 #tx[irun] = str(ldt[ei])
                 phi[irun,:,:] = f
                 fmax=numpy.amax(f)
-                f=f/fmax
+                fm=f/fmax
             elif mode == "kormei":
                 FKM = calcfootKM.FKM_climatology(zm=zmt, z0=z0t, umean=umeant, ol=olt, sigmav=sigmavt, ustar=ustart,\
                                                  wind_dir=wind_dirt, domain=domaint, dx=None, dy=None, nx=nxt, ny=None, \
@@ -181,19 +184,30 @@ def footprint_main(cf, mode):
                 #tx[irun] = str(ldt[ei])
                 phi[irun,:,:] = f
                 fmax=numpy.amax(f)
-                f=f/fmax
+                fm=f/fmax
             else:
                 msg = " Unrecognised footprint type " + str(mode)
                 logger.error(msg)
                 return
             i_cum = footprint_utils.get_keyvaluefromcf(cf,["Options"],'Cumulative')
             if i_cum:
-               msg = "Caclulated cumulative footprint field"
-               logger.info(msg)
-               f_min = 0.05
-               f_step = 0.05
-               f = calc_cumulative(f,f_min,f_step)
-            
+                # ===
+                msg = "Caclulated cumulative footprint field"
+                logger.info(msg)
+                f_min = 0.05
+                f_step = 0.05
+                f = calc_cumulative(fm,f_min,f_step)
+            else:
+                f = fm
+            i_aoi = footprint_utils.get_keyvaluefromcf(cf,["Options"],'AreaOfInterest')
+            if i_aoi:
+                # === 
+                msg = "Contribution from area of interest"
+                logger.info(msg)
+                area = PolygonContribution(cf,x,y,fm)
+                
+                      
+
         # ====================================================================================================
         # get the default plot width and height
         #clevs = [0.01,0.05,0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
@@ -532,9 +546,47 @@ def plotphifield(x, y, zt1, zt2, data, station, mode, clevs, imagename,i_cum):
     plt.draw()
     plt.pause(1e-9)
     plt.ioff()
-    
+
+def PolygonContribution(cf,x,y,fm):
+    # =======================================================================================================
+    # Create a field which defines in what area of interest each grid point is located in 
+    # a maximum of 10 AoIs can be defined, must be rectangles but do not need to line up 
+    # with the grid, so can be to an angle of the x,y grid
+    # ID = number for field identification
+    # area = rectangle specification; x1_coord y1_coord x2_coord y2_coord x3_coord y3_coord x4_coord y4_coord
+    # cmewenz 22/02/2019
+    # =======================================================================================================
+    ix, iy = numpy.shape(fm)
+    x, y  = x.flatten(),y.flatten()
+    points = numpy.vstack((x,y)).T
+    sum_fm = fm.sum()
+    for ID in cf["AreaOfInterest"].keys():
+        area = footprint_utils.get_keyvaluefromcf(cf,["AreaOfInterest",ID],"area",default="")
+        area = [float(i) for i in area]
+        vertices = numpy.reshape(area,(-1,2))
+        polygon = Path(vertices)
+        # Find if grid point is inside a polygon using matplotlib
+        # (https://stackoverflow.com/questions/21339448/how-to-get-list-of-points-inside-a-polygon-in-python)
+        grid = polygon.contains_points(points)
+        mask = grid.reshape(ix,iy)
+        #num_true = (mask == True).sum()
+        #num_fals = (mask == False).sum()
+        #num_all  = num_true + num_fals
+        # mask fm to only contain the area of interest data
+        fm_masked = numpy.ma.compressed(numpy.ma.masked_where(mask == False, fm))
+        # sum the area
+        sum_fm_masked = fm_masked.sum()
+        print "Field number = %s, Percent of total = % 8.2f" % (ID, 100.0*(sum_fm_masked/sum_fm))
+        #,num_true, num_fals, num_all, sum_fm, sum_fm_masked
+        #msg = "Field number = " + ID + ' ' + str(100.0*(sum_fm_masked/sum_fm)) + '%'
+        #logger.info(msg)
+    return
+
 def calc_cumulative(f, f_min,f_step):
-    # calculate the cumulative footprint values
+    # ------------------------------------------------------------------------------------
+    # calculate the cumulative footprint values by correlating the percentage of max field 
+    # to the contribution of the area between two isolines to the total
+    # cmewenz - Feb 2019
     fcum05 = numpy.ma.masked_where(f <= f_min, f)
     fcum05 = numpy.ma.filled(fcum05,float(0))
     fcum  = numpy.sum(fcum05)
@@ -555,9 +607,11 @@ def calc_cumulative(f, f_min,f_step):
         stest = stest + test
         cclevs.append(stest)
         #print ser3[i],stest #fmax,numpy.sum(fcum05),ser1[i],ser2[i],test,stest
+    # estimating polygon to match the correlation between cumulative and percent from max
     fcum_eq = numpy.polyfit(ser3,cclevs,3)
     #print fcum_eq
     fcum=fcum_eq[0]*f*f*f+fcum_eq[1]*f*f+fcum_eq[2]*f+fcum_eq[3]
     f=fcum
     
     return f
+
