@@ -126,6 +126,11 @@ def footprint_main(cf, mode):
         kml_name_path = d["plot_path"] +kmlname
         fi = open(kml_name_path, 'w')
         kml_initialise(d,fi,mode)
+    i_aoi = footprint_utils.get_keyvaluefromcf(cf,["Options"],'AreaOfInterest')
+    if i_aoi:
+        paoi = open('aoi_result.txt', 'w') # open output file
+        paoi.write("Start time, Field number, Percent of total\n")
+
         # ------------------------
     # After deciding which climatology is done, let's do it!
     irun = -1
@@ -199,12 +204,11 @@ def footprint_main(cf, mode):
                 f = calc_cumulative(fm,f_min,f_step)
             else:
                 f = fm
-            i_aoi = footprint_utils.get_keyvaluefromcf(cf,["Options"],'AreaOfInterest')
             if i_aoi:
                 # === 
                 msg = "Contribution from area of interest"
                 logger.info(msg)
-                area = PolygonContribution(cf,x,y,fm)
+                area = PolygonContribution(cf,x,y,fm,ldt[si], ldt[ei],paoi)
                 
                       
 
@@ -240,6 +244,9 @@ def footprint_main(cf, mode):
     if iplot == 2:
         # Finish kml file and process a compressed kmz file including all images
         kml_finalise(d,fi,mode,kmlname)
+    if i_aoi:
+        paoi.close()                  
+
     # ================================================================
     msg = " Finished " + str(mode) + " footprint writing"
     logger.info(msg)
@@ -547,41 +554,6 @@ def plotphifield(x, y, zt1, zt2, data, station, mode, clevs, imagename,i_cum):
     plt.pause(1e-9)
     plt.ioff()
 
-def PolygonContribution(cf,x,y,fm):
-    # =======================================================================================================
-    # Create a field which defines in what area of interest each grid point is located in 
-    # a maximum of 10 AoIs can be defined, must be rectangles but do not need to line up 
-    # with the grid, so can be to an angle of the x,y grid
-    # ID = number for field identification
-    # area = rectangle specification; x1_coord y1_coord x2_coord y2_coord x3_coord y3_coord x4_coord y4_coord
-    # cmewenz 22/02/2019
-    # =======================================================================================================
-    ix, iy = numpy.shape(fm)
-    x, y  = x.flatten(),y.flatten()
-    points = numpy.vstack((x,y)).T
-    sum_fm = fm.sum()
-    for ID in cf["AreaOfInterest"].keys():
-        area = footprint_utils.get_keyvaluefromcf(cf,["AreaOfInterest",ID],"area",default="")
-        area = [float(i) for i in area]
-        vertices = numpy.reshape(area,(-1,2))
-        polygon = Path(vertices)
-        # Find if grid point is inside a polygon using matplotlib
-        # (https://stackoverflow.com/questions/21339448/how-to-get-list-of-points-inside-a-polygon-in-python)
-        grid = polygon.contains_points(points)
-        mask = grid.reshape(ix,iy)
-        #num_true = (mask == True).sum()
-        #num_fals = (mask == False).sum()
-        #num_all  = num_true + num_fals
-        # mask fm to only contain the area of interest data
-        fm_masked = numpy.ma.compressed(numpy.ma.masked_where(mask == False, fm))
-        # sum the area
-        sum_fm_masked = fm_masked.sum()
-        print "Field number = %s, Percent of total = % 8.2f" % (ID, 100.0*(sum_fm_masked/sum_fm))
-        #,num_true, num_fals, num_all, sum_fm, sum_fm_masked
-        #msg = "Field number = " + ID + ' ' + str(100.0*(sum_fm_masked/sum_fm)) + '%'
-        #logger.info(msg)
-    return
-
 def calc_cumulative(f, f_min,f_step):
     # ------------------------------------------------------------------------------------
     # calculate the cumulative footprint values by correlating the percentage of max field 
@@ -614,4 +586,42 @@ def calc_cumulative(f, f_min,f_step):
     f=fcum
     
     return f
+
+def PolygonContribution(cf,x,y,fm,start,finish,paoi):
+    # =======================================================================================================
+    # Create a field which defines in what area of interest each grid point is located in 
+    # a maximum of 10 AoIs can be defined, must be rectangles but do not need to line up 
+    # with the grid, so can be to an angle of the x,y grid
+    # ID = number for field identification
+    # area = rectangle specification; x1_coord y1_coord x2_coord y2_coord x3_coord y3_coord x4_coord y4_coord
+    # cmewenz 22/02/2019
+    # =======================================================================================================
+    ix, iy = numpy.shape(fm)
+    x, y  = x.flatten(),y.flatten()
+    points = numpy.vstack((x,y)).T
+    sum_fm = fm.sum()
+    #paoi = open('aoi_result.txt', 'w') # open output file
+    #paoi.write("Start time, Field number, Percent of total\n")
+    for ID in cf["AreaOfInterest"].keys():
+        area = footprint_utils.get_keyvaluefromcf(cf,["AreaOfInterest",ID],"area",default="")
+        area = [float(i) for i in area]
+        vertices = numpy.reshape(area,(-1,2))
+        polygon = Path(vertices)
+        # Find if grid point is inside a polygon using matplotlib
+        # (https://stackoverflow.com/questions/21339448/how-to-get-list-of-points-inside-a-polygon-in-python)
+        grid = polygon.contains_points(points)
+        mask = grid.reshape(ix,iy)
+        #num_true = (mask == True).sum()
+        #num_fals = (mask == False).sum()
+        #num_all  = num_true + num_fals
+        # mask fm to only contain the area of interest data
+        fm_masked = numpy.ma.compressed(numpy.ma.masked_where(mask == False, fm))
+        # sum the area
+        sum_fm_masked = fm_masked.sum()
+        print "%s, %s, % 8.2f" % (start.strftime("%Y%m%d%H%M"),ID, 100.0*(sum_fm_masked/sum_fm))
+        #,num_true, num_fals, num_all, sum_fm, sum_fm_masked
+        #msg = "Field number = " + ID + ' ' + str(100.0*(sum_fm_masked/sum_fm)) + '%'
+        #logger.info(msg)
+        paoi.write("%s, %s, % 8.2f\n" % (start.strftime("%Y%m%d %H%M"),ID, 100.0*(sum_fm_masked/sum_fm)))  
+    return
 
