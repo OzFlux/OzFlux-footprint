@@ -4,6 +4,7 @@ import ast
 import constants as c
 import copy
 import datetime
+import cftime
 import dateutil
 import logging
 import math
@@ -745,7 +746,12 @@ def get_datetimefromnctime(ds,time,time_units):
     """
     ts = int(ds.globalattributes["time_step"])
     nRecs = int(ds.globalattributes["nc_nrecs"])
-    dt = netCDF4.num2date(time,time_units)
+    # handle the change of default return object introduced at cftime V1.1.0
+    try:
+        dt = cftime.num2pydate(time, time_units)
+    except  AttributeError:
+        dt = cftime.num2date(time, time_units)
+    #dt = netCDF4.num2date(time,time_units)
     ds.series[unicode("DateTime")] = {}
     ds.series["DateTime"]["Data"] = dt
     ds.series["DateTime"]["Flag"] = numpy.zeros(nRecs)
