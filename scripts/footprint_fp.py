@@ -349,26 +349,34 @@ def get_footprint_data_in(cf, mode):
         # if not, calculate it
         footprint_utils.CalculateMoninObukhovLength(ds)
     # if the cross wind standard deviation is not in the data set (quite common) then use something else
-    if "V_Sd" not in ds.series.keys():
-        # could do better with:
-        # 1) reprocess L3 and output variance of U, V and W
-        # 2) estimated from standard deviation of wind direction (if available)
-        # 3) estimate using MO relations (needs Habl)
+    # cw_list = ["V_SONIC_Sd", "V_Sd", "Uy_Sd"]
+    if "V_SONIC_Sd" in ds.series.keys():
+        V_SONIC_Sd = footprint_utils.GetVariable(ds, "V_SONIC_Sd")
         V_Sd = footprint_utils.create_empty_variable("V_Sd", nrecs)
-        if "Uy_Sd" in ds.series.keys():
-            #logger.warning("Stdev of cross wind component not in data structure, estimated as 0.5*Ws")
-            Uy_Sd = footprint_utils.GetVariable(ds, "Uy_Sd")
-            V_Sd["Data"] = Uy_Sd["Data"]
-            V_Sd["Attr"]["height"] = Uy_Sd["Attr"]["height"]
-        else:
-            logger.warning("Stdev of cross wind component not in data structure, estimated as 0.5*Ws")
-            Ws = footprint_utils.GetVariable(ds, "Ws")
-            V_Sd["Data"] = 0.5*Ws["Data"]
-            V_Sd["Attr"]["height"] = Ws["Attr"]["height"]
-        V_Sd["Flag"] = numpy.where(numpy.ma.getmaskarray(V_Sd["Data"])==True, f1, f0)
-        V_Sd["Attr"]["long_name"] = "Variance of cross-wind velocity component, estimated from Ws"
-        V_Sd["Attr"]["units"] = "(m/s)2"
-        footprint_utils.CreateVariable(ds, V_Sd)
+        V_Sd["Data"] = V_SONIC_Sd["Data"]
+        V_Sd["Attr"]["height"] = V_SONIC_Sd["Attr"]["height"]
+        footprint_utils.CreateVariable(ds, V_Sd)        
+    else:
+        if "V_Sd" not in ds.series.keys():
+            # could do better with:
+            # 1) reprocess L3 and output variance of U, V and W
+            # 2) estimated from standard deviation of wind direction (if available)
+            # 3) estimate using MO relations (needs Habl)
+            V_Sd = footprint_utils.create_empty_variable("V_Sd", nrecs)
+            if "Uy_Sd" in ds.series.keys():
+                #logger.warning("Stdev of cross wind component not in data structure, estimated as 0.5*Ws")
+                Uy_Sd = footprint_utils.GetVariable(ds, "Uy_Sd")
+                V_Sd["Data"] = Uy_Sd["Data"]
+                V_Sd["Attr"]["height"] = Uy_Sd["Attr"]["height"]
+            else:
+                logger.warning("Stdev of cross wind component not in data structure, estimated as 0.5*Ws")
+                Ws = footprint_utils.GetVariable(ds, "Ws")
+                V_Sd["Data"] = 0.5*Ws["Data"]
+                V_Sd["Attr"]["height"] = Ws["Attr"]["height"]
+                V_Sd["Flag"] = numpy.where(numpy.ma.getmaskarray(V_Sd["Data"])==True, f1, f0)
+            V_Sd["Attr"]["long_name"] = "Stdev of cross-wind velocity component, estimated from Ws"
+            V_Sd["Attr"]["units"] = "m/s"
+            footprint_utils.CreateVariable(ds, V_Sd) 
     # === roughness length
     if "z0" not in ds.series.keys():
         z0 = footprint_utils.create_empty_variable("z0", nrecs)
