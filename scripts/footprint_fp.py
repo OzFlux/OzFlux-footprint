@@ -522,7 +522,7 @@ def kml_finalise(d,fi,mode,kmlname):
     logger.info(msg)
     plotlist = [p for p in os.listdir('.') if p.endswith(".png")]
     compression = zipfile.ZIP_DEFLATED
-    zf = zipfile.ZipFile(kmzname, mode='w')
+    zf = zipfile.ZipFile(kmzname, mode='w', allowZip64=True)
     zf.write(kmlname, compress_type=compression)
     os.remove(kmlname)
     for f in plotlist:
